@@ -193,10 +193,15 @@ class Sync:
             update_json = UpdateJson.load(update_json_file)
             latest_item = update_json.versions[-1]
 
-            file_name = latest_item.zipUrl.split("/")[-1]
-            zip_file = module_folder.joinpath(file_name)
-            if not zip_file.exists():
-                continue
+            if track.update_to.endswith("zip"):
+                zip_file = module_folder.joinpath(f"{track.id}.zip")
+                if not zip_file.exists():
+                    continue
+            else:
+                file_name = latest_item.zipUrl.split("/")[-1]
+                zip_file = module_folder.joinpath(file_name)
+                if not zip_file.exists():
+                    continue
 
             online_module = LocalModule.from_file(zip_file).to_OnlineModule()
             online_module.license = track.license
@@ -206,6 +211,9 @@ class Sync:
             )
 
             modules_json.modules.append(online_module)
+            if track.update_to.endswith("zip"):
+                zip_file = module_folder.joinpath(f"{track.id}.zip")
+                os.remove(zip_file)
 
         modules_json.modules.sort(key=lambda v: v.id)
         if to_file:

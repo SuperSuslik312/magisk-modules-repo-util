@@ -44,14 +44,18 @@ class Pull:
         else:
             return True
 
-    def _get_file_url(self, module_id, file):
-        module_folder = self.modules_folder.joinpath(module_id)
-        url = f"{self._config.repo_url}{self.modules_folder.name}/{module_id}/{file.name}"
-
-        if not (file.is_relative_to(module_folder) and file.exists()):
-            raise FileNotFoundError(f"{file} is not in {module_folder}")
-        else:
+    def _get_file_url(self, module_id, file, update_to):
+        if update_to.endswith("zip"):
+            url = f"{update_to}"
             return url
+        else:
+            module_folder = self.modules_folder.joinpath(module_id)
+            url = f"{self._config.repo_url}{self.modules_folder.name}/{module_id}/{file.name}"
+
+            if not (file.is_relative_to(module_folder) and file.exists()):
+                raise FileNotFoundError(f"{file} is not in {module_folder}")
+            else:
+                return url
 
     def _get_changelog_common(self, module_id, changelog):
         if not isinstance(changelog, str) or changelog == "":
@@ -79,7 +83,7 @@ class Pull:
 
         return changelog_file
 
-    def _from_zip_common(self,  module_id, zip_file, changelog_file, *, delete_tmp=True):
+    def _from_zip_common(self,  module_id, zip_file, changelog_file, zip_url, *, delete_tmp=True):
         module_folder = self.modules_folder.joinpath(module_id)
 
         def remove_file():
@@ -116,6 +120,8 @@ class Pull:
 
         if not target_zip_file.exists() and len(target_files) == 0:
             self._copy_file(zip_file, target_zip_file, delete_tmp)
+            if zip_url.endswith("zip"):
+                os.remove(target_zip_file)
         else:
             remove_file()
             return None
@@ -127,7 +133,7 @@ class Pull:
             changelog_url = self._get_file_url(module_id, target_changelog_file)
 
         online_module.states = AttrDict(
-            zipUrl=self._get_file_url(module_id, target_zip_file),
+            zipUrl=self._get_file_url(module_id, target_zip_file, zip_url),
             changelog=changelog_url
         )
 
@@ -167,7 +173,10 @@ class Pull:
             last_modified = result.value
 
         changelog = self._get_changelog_common(track.id, update_json.changelog)
-        online_module = self._from_zip_common(track.id, zip_file, changelog, delete_tmp=True)
+        if track.update_to.endswith("zip"):
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=False)
+        else:
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=True)
         return online_module, last_modified
 
     def from_url(self, track):
@@ -182,7 +191,10 @@ class Pull:
             last_modified = result.value
 
         changelog = self._get_changelog_common(track.id, track.changelog)
-        online_module = self._from_zip_common(track.id, zip_file, changelog, delete_tmp=True)
+        if track.update_to.endswith("zip"):
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=False)
+        else:
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=True)
         return online_module, last_modified
 
     def from_git(self, track):
@@ -201,7 +213,10 @@ class Pull:
             last_committed = result.value
 
         changelog = self._get_changelog_common(track.id, track.changelog)
-        online_module = self._from_zip_common(track.id, zip_file, changelog, delete_tmp=True)
+        if track.update_to.endswith("zip"):
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=False)
+        else:
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=True)
         return online_module, last_committed
 
     def from_zip(self, track):
@@ -213,7 +228,10 @@ class Pull:
             return None, 0.0
 
         changelog = self._get_changelog_common(track.id, track.changelog)
-        online_module = self._from_zip_common(track.id, zip_file, changelog, delete_tmp=False)
+        if track.update_to.endswith("zip"):
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=False)
+        else:
+            online_module = self._from_zip_common(track.id, zip_file, changelog, track.update_to, delete_tmp=True)
         return online_module, last_modified
 
     def from_track(self, track):
